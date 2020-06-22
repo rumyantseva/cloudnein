@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-
+	"github.com/DataDog/datadog-go/statsd"
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
@@ -23,6 +23,17 @@ func main() {
 	log := logger.Sugar().Named("grahovac").With("version", "v0.0.1")
 	log.Info("The application is starting...")
 	defer log.Info("The application is stopped.")
+
+	c, err := statsd.New("127.0.0.1:8125")
+	if err != nil {
+		log.Fatalw("Couldn't connect to statsd", "err", err)
+	}
+
+	c.Namespace = "grahovac"
+	defer func() {
+		err := c.Close()
+		log.Errorw("Error when closing statsd client", "err", err)
+	}()
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -53,6 +64,12 @@ func main() {
 	diagRouter.HandleFunc("/health", func(
 		w http.ResponseWriter, _ *http.Request) {
 		healthCounter.Inc()
+
+		err := c.Incr("health_calls", []string{}, 1)
+		if err != nil {
+			log.Errorw("Can't increment health_calls", "err", err)
+		}
+
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -103,7 +120,7 @@ func main() {
 	timeout, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelFunc()
 
-	err := diag.Shutdown(timeout)
+	err = diag.Shutdown(timeout)
 	if err != nil {
 		log.Errorf("Couldn't stop diagnostics server: %v", err)
 	}
