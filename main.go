@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
@@ -41,10 +43,19 @@ func main() {
 	}
 
 	diagRouter := mux.NewRouter()
+
+	healthCounter := prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "health_calls",
+		Help: "The number of health calls",
+	})
+	prometheus.MustRegister(healthCounter)
+
 	diagRouter.HandleFunc("/health", func(
 		w http.ResponseWriter, _ *http.Request) {
+		healthCounter.Inc()
 		w.WriteHeader(http.StatusOK)
 	})
+
 	diagRouter.Handle("/prom", promhttp.Handler())
 
 	diag := http.Server{
