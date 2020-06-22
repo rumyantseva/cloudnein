@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -34,6 +36,9 @@ func main() {
 		err := c.Close()
 		log.Errorw("Error when closing statsd client", "err", err)
 	}()
+
+	tracer.Start()
+	defer tracer.Stop()
 
 	port := os.Getenv("PORT")
 	if port == "" {
