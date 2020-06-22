@@ -55,10 +55,9 @@ func main() {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				//buf := make([]byte, 10000)
-				//runtime.Stack(bf, true)
 				// ToDo: convert buf to a proper string
-				log.With("panic", r).Fatal("Got a panic")
+				// buf := debug.Stack()
+				// log.With("panictrace", buf).With("panic", r).Fatal("Got a panic")
 			}
 		}()
 
