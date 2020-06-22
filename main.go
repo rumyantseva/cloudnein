@@ -39,7 +39,7 @@ func main() {
 		log.Errorw("Error when closing statsd client", "err", err)
 	}()
 
-	tracer.Start()
+	tracer.Start(tracer.WithDebugMode(true))
 	defer tracer.Stop()
 
 	port := os.Getenv("PORT")
@@ -58,11 +58,25 @@ func main() {
 
 	r.HandleFunc("/", func(
 		w http.ResponseWriter, r *http.Request) {
-
 		deep := r.URL.Query().Get("deep")
 		if deep == "" {
 			deep = "1"
 		}
+
+		options := []tracer.StartSpanOption{tracer.Tag("deep", deep)}
+
+		spanCtx, err := tracer.Extract(tracer.HTTPHeadersCarrier(r.Header))
+		if err == nil {
+			options = append(options, tracer.ChildOf(spanCtx))
+		}
+
+		span := tracer.StartSpan("calculating_d", options...)
+		defer span.Finish()
+
+		sublog := log.With("dd.trace_id", span.Context().TraceID()).
+			With("dd.span_id", span.Context().SpanID())
+
+		sublog.Infof("The request received: %v", r.Header)
 
 		d, err := strconv.Atoi(deep)
 		if err != nil {
@@ -70,7 +84,7 @@ func main() {
 			return
 		}
 
-		log.Infof("The d is %d", d)
+		sublog.Infof("The d is %d", d)
 
 		if d >= 5 {
 			w.WriteHeader(http.StatusOK)
@@ -78,7 +92,22 @@ func main() {
 		}
 
 		d++
-		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%s/?deep=%d", port, d))
+
+		req, _ := http.NewRequest(
+			http.MethodGet,
+			fmt.Sprintf("http://127.0.0.1:%s/?deep=%d", port, d),
+			nil,
+		)
+
+		err = tracer.Inject(span.Context(), tracer.HTTPHeadersCarrier(req.Header))
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+
+		sublog.Infof("The request to send: %v", req.Header)
+
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			//
 		}
