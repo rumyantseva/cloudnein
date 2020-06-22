@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -44,6 +45,7 @@ func main() {
 		w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
+	diagRouter.Handle("/prom", promhttp.Handler())
 
 	diag := http.Server{
 		Addr:    net.JoinHostPort("", diagPort),
