@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
-	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
+	"gopkg.in/DataDog/dd-trace-go.v1/contrib/gorilla/mux"
 )
 
 func main() {
@@ -47,13 +47,20 @@ func main() {
 
 	log.Info("Configuration is read successfully")
 
-	r := mux.NewRouter()
+	r := mux.NewRouter(mux.WithServiceName("grahovac.bl"))
+
+	r.HandleFunc("/", func(
+		w http.ResponseWriter, r *http.Request) {
+
+		w.WriteHeader(http.StatusOK)
+	})
+
 	server := http.Server{
 		Addr:    net.JoinHostPort("", port),
 		Handler: r,
 	}
 
-	diagRouter := mux.NewRouter()
+	diagRouter := mux.NewRouter(mux.WithServiceName("grahovac.diag"))
 
 	healthCounter := prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "health_calls",
