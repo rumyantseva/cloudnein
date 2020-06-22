@@ -17,18 +17,21 @@ func main() {
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
 
-	sugar := logger.Sugar().Named("grahovac")
-	sugar.Info("The application is starting...")
+	log := logger.Sugar().Named("grahovac").With("version", "v0.0.1")
+	log.Info("The application is starting...")
+	defer log.Info("The application is stopped.")
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		return
+		log.Fatal("Business logic port is not set")
 	}
 
 	diagPort := os.Getenv("DIAG_PORT")
 	if diagPort == "" {
-		return
+		log.Fatal("Diagnostics port is not set")
 	}
+
+	log.Info("Configuration is read successfully")
 
 	r := mux.NewRouter()
 	server := http.Server{
@@ -63,15 +66,17 @@ func main() {
 		}
 	}()
 
+	log.Info("The application is ready to listen to the user requests")
+
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
 	select {
 	case x := <-interrupt:
-		// Received a signal
+		log.Infof("Received %s from OS", x.String())
 
 	case err := <-shutdown:
-		// Received a shutdown message
+		log.Errorf("Received an error from a server: %v", err)
 	}
 
 	timeout, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
@@ -79,11 +84,11 @@ func main() {
 
 	err := diag.Shutdown(timeout)
 	if err != nil {
-		// ?
+		log.Errorf("Couldn't stop diagnostics server: %v", err)
 	}
 
 	err = server.Shutdown(timeout)
 	if err != nil {
-		// ?
+		log.Errorf("Couldn't stop business logic server: %v", err)
 	}
 }
