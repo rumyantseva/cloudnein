@@ -10,9 +10,16 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"go.uber.org/zap"
 )
 
 func main() {
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
+
+	sugar := logger.Sugar().Named("grahovac")
+	sugar.Info("The application is starting...")
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		return
