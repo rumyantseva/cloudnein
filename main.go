@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -57,7 +59,36 @@ func main() {
 	r.HandleFunc("/", func(
 		w http.ResponseWriter, r *http.Request) {
 
-		w.WriteHeader(http.StatusOK)
+		deep := r.URL.Query().Get("deep")
+		if deep == "" {
+			deep = "1"
+		}
+
+		d, err := strconv.Atoi(deep)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		log.Infof("The d is %d", d)
+
+		if d >= 5 {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		d++
+		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%s/?deep=%d", port, d))
+		if err != nil {
+			//
+		}
+
+		if resp == nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+
+		w.WriteHeader(resp.StatusCode)
 	})
 
 	server := http.Server{
