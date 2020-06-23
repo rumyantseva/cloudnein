@@ -54,9 +54,9 @@ func main() {
 
 	log.Info("Configuration is read successfully")
 
-	r := mux.NewRouter(mux.WithServiceName("grahovac.bl"))
+	router := mux.NewRouter(mux.WithServiceName("grahovac.bl"))
 
-	r.HandleFunc("/", func(
+	router.HandleFunc("/", func(
 		w http.ResponseWriter, r *http.Request) {
 		deep := r.URL.Query().Get("deep")
 		if deep == "" {
@@ -64,13 +64,8 @@ func main() {
 		}
 
 		options := []tracer.StartSpanOption{tracer.Tag("deep", deep)}
+		span, _ := tracer.StartSpanFromContext(r.Context(), "calculating_d", options...)
 
-		spanCtx, err := tracer.Extract(tracer.HTTPHeadersCarrier(r.Header))
-		if err == nil {
-			options = append(options, tracer.ChildOf(spanCtx))
-		}
-
-		span := tracer.StartSpan("calculating_d", options...)
 		defer span.Finish()
 
 		sublog := log.With("dd.trace_id", span.Context().TraceID()).
@@ -122,7 +117,7 @@ func main() {
 
 	server := http.Server{
 		Addr:    net.JoinHostPort("", port),
-		Handler: r,
+		Handler: router,
 	}
 
 	diagRouter := mux.NewRouter(mux.WithServiceName("grahovac.diag"))
@@ -159,7 +154,7 @@ func main() {
 			if r := recover(); r != nil {
 				// ToDo: convert buf to a proper string
 				// buf := debug.Stack()
-				// log.With("panictrace", buf).With("panic", r).Fatal("Got a panic")
+				// log.With("panictrace", buf).With("panic", router).Fatal("Got a panic")
 			}
 		}()
 
